@@ -232,3 +232,75 @@
   - Hung-Ying Tai (@hydai, hydai@secondstate.io)
   - Shen-Ta Hsieh (@ibmibmibm, beststeve@secondstate.io)
 - Upstream Issue: https://github.com/WasmEdge/WasmEdge/issues/4516
+
+#### Optimizing Rootfs Handling with block-based snapshotters in `urunc`
+
+- Description:
+
+When `urunc` is used together with a block-based snapshotter, it can take
+advantage of block-device backed container root filesystem and pass it
+directly to the sandbox as a disk image. This approach avoids filesystem
+conversion and enables efficient access to the container root filesystem.
+
+However, in order to spawn the sandbox, urunc requires access to the guest
+kernel and the initrd (if present). Since these files are part of the
+container rootfs, `urunc` must first extract and store them elsewhere before
+attaching the block-based root filesystem to the sandbox. As a result, this
+process introduces unnecessary file copies and additional I/O overhead.
+
+A more efficient approach is to leverage read-only (view) snapshots. Instead of
+copying files, `urunc` could request a read-only snapshot of the container root
+filesystem and mount it separately. The kernel binary and other required
+artifacts could then be read directly from this snapshot without modifying or
+duplicating data. Since view snapshots simply redirect read requests to the
+underlying snapshot layers, this approach is expected to introduce little to no
+additional storage overhead while simplifying the runtime flow.
+
+- Expected Outcome:
+  - A document explaining block-based snapshots in containerd, along with the
+    respective APIs to snapshot creation and management.
+  - An implementation in `urunc` that requests and mounts a read-only snapshot
+    of the container root filesystem.
+  - Evaluation of performance, storage overhead, and limitations of the
+    snapshot-based approach.
+
+- Recommended Skills:
+  - Go
+  - Familiarity with containerd
+  - Familiarity with Linux filesystems and block devices
+- Mentor(s):
+  - Charalampos Mainas (@cmainas, cmainas@nubificus.co.uk)
+  - Anastassios Nanos (@ananos, ananos@nubificus.co.uk)
+- Upstream Issue: https://github.com/urunc-dev/urunc/issues/43
+
+#### Investigate missing custom OCI Annotations in urunc containers
+
+- Description:
+
+In order to pass sandbox-specific configuration, such as the guest type,
+monitor type, rootfs information and others, `urunc` relies on a set of [custom
+OCI annotations](https://urunc.io/package/#annotations). However, these
+annotations are missing from the container's configuration in
+non-Kubernetes-deployments. To work around this issue, a `urunc.json` file
+containing the same information is currently injected into the container’s
+root filesystem. This works aims to investigate the OCI image build and runtime
+flow to understand where and why these custom annotations are dropped or
+ignored in non-Kubernetes setups.
+
+- Expected Outcome:
+  - A clear summary of the investigation, including where and why the custom
+    annotations are lost.
+  - A proposed solution enabling `urunc` to correctly consume its custom OCI
+    annotations.
+  - Alternatively, the design and implementation of a cleaner mechanism than
+    injecting a file into the container’s root filesystem.
+
+- Recommended Skills:
+  - Go
+  - Familiarity with container tools (docker, nerdctl, skopeo etc.)
+  - Familiarity with container runtimes (containerd, runc, urunc)
+  - familiarity with the OCI specification
+- Mentor(s):
+  - Charalampos Mainas (@cmainas, cmainas@nubificus.co.uk)
+  - Anastassios Nanos (@ananos, ananos@nubificus.co.uk)
+- Upstream Issue: https://github.com/urunc-dev/urunc/issues/12
